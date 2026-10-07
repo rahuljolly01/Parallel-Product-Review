@@ -1,0 +1,353 @@
+{
+  "name": "3. Parallel - Product Review Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "583e5d52-81fb-4aac-be08-6e76938ef15f",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -448,
+        512
+      ],
+      "webhookId": "parallel-review-analyzer"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { reviewText: $json.chatInput } }];"
+      },
+      "id": "5b337eb5-f007-417c-a796-30429a66e30f",
+      "name": "Set Review Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a SENTIMENT ANALYSIS agent.\n\nAnalyze the sentiment of this customer review:\n\"{{ $json.reviewText }}\"\n\nRespond in EXACTLY this format, nothing else:\nSentiment: <Positive / Negative / Mixed>\nSentiment Score: <a number from -1.0 (very negative) to 1.0 (very positive)>\nReasoning: <one short sentence explaining why>",
+        "options": {
+          "systemMessage": "You are a sentiment analysis specialist. You always respond using exactly the requested format with no extra commentary."
+        }
+      },
+      "id": "759ac81a-a5fd-43d3-b986-50b79a314446",
+      "name": "Sentiment Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "c53ebcf2-7b5d-4e55-a5e3-0193350359ba",
+      "name": "Gemini Model - Sentiment",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        80,
+        224
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sfubcs9LdCM6Qoqs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a FEATURE MENTIONS agent.\n\nRead this customer review:\n\"{{ $json.reviewText }}\"\n\nIdentify which product features or aspects are mentioned (e.g. delivery time, app UI, pricing, packing quality, customer support, payment, restaurant/host quality, search results, etc).\n\nRespond in EXACTLY this format, nothing else:\nFeatures Mentioned: <comma-separated list of features mentioned, or \"None\" if no specific feature is mentioned>\nPrimary Feature: <the single most central feature, or \"None\">",
+        "options": {
+          "systemMessage": "You are a product feedback analyst who extracts which product features are mentioned in reviews. You always respond using exactly the requested format with no extra commentary."
+        }
+      },
+      "id": "160f6582-8bde-461d-9894-1e438f8a2b47",
+      "name": "Feature Mentions Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "34ddbb0a-9691-458c-b42f-9eeeb786aeb0",
+      "name": "Gemini Model - Features",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        80,
+        624
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sfubcs9LdCM6Qoqs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a COMPLAINT CATEGORY agent.\n\nRead this customer review:\n\"{{ $json.reviewText }}\"\n\nDecide if this review contains a complaint, and if so, classify it.\n\nRespond in EXACTLY this format, nothing else:\nHas Complaint: <Yes / No>\nComplaint Category: <one of: Delivery Delay, Product Quality, Payment Issue, Refund/Cancellation, App/Tech Issue, Customer Support, Pricing, Safety/Trust, Other, or \"None\" if Has Complaint is No>\nSeverity: <Low / Medium / High, or \"None\" if Has Complaint is No>",
+        "options": {
+          "systemMessage": "You are a customer support triage specialist who classifies complaints in reviews. You always respond using exactly the requested format with no extra commentary."
+        }
+      },
+      "id": "620809a1-2660-4fce-b94f-30431cd25218",
+      "name": "Complaint Category Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "ff90db80-880c-4a69-9583-24ec06008cf2",
+      "name": "Gemini Model - Complaint",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1136
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sfubcs9LdCM6Qoqs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "4336b9ee-1705-4f45-ad12-8c12088ac662",
+      "name": "Merge Three Agent Outputs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        352,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Inputs arrive merged by position from the 3 parallel agent branches\nconst items = $input.all();\n\n// Each item corresponds to one branch's agent output, in the order the Merge node received them\n// items[0] = Sentiment, items[1] = Feature Mentions, items[2] = Complaint Category\nconst getOutput = (item) => (item.json.output || item.json.text || '').toString();\n\nconst sentimentRaw = getOutput(items[0]);\nconst featuresRaw = getOutput(items[1]);\nconst complaintRaw = getOutput(items[2]);\n\nfunction parseField(text, label) {\n  const regex = new RegExp(label + '\\s*:\\s*(.+)', 'i');\n  const match = text.match(regex);\n  return match ? match[1].trim() : '';\n}\n\nconst sentiment = parseField(sentimentRaw, 'Sentiment');\nconst sentimentScore = parseField(sentimentRaw, 'Sentiment Score');\nconst sentimentReasoning = parseField(sentimentRaw, 'Reasoning');\n\nconst featuresMentioned = parseField(featuresRaw, 'Features Mentioned');\nconst primaryFeature = parseField(featuresRaw, 'Primary Feature');\n\nconst hasComplaint = parseField(complaintRaw, 'Has Complaint');\nconst complaintCategory = parseField(complaintRaw, 'Complaint Category');\nconst severity = parseField(complaintRaw, 'Severity');\n\nconst reviewText = $('Set Review Text').first().json.reviewText;\n\nreturn [{\n  json: {\n    review_text: reviewText,\n    sentiment: sentiment,\n    sentiment_score: sentimentScore,\n    sentiment_reasoning: sentimentReasoning,\n    features_mentioned: featuresMentioned,\n    primary_feature: primaryFeature,\n    has_complaint: hasComplaint,\n    complaint_category: complaintCategory,\n    severity: severity,\n    analyzed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "b25c02c3-c10c-41bf-8f21-2a9d7f1a6ac6",
+      "name": "Combine Into Structured Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reviews",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_text": "={{ $json.review_text }}",
+            "sentiment": "={{ $json.sentiment }}",
+            "sentiment_score": "={{ $json.sentiment_score }}",
+            "sentiment_reasoning": "={{ $json.sentiment_reasoning }}",
+            "features_mentioned": "={{ $json.features_mentioned }}",
+            "primary_feature": "={{ $json.primary_feature }}",
+            "has_complaint": "={{ $json.has_complaint }}",
+            "complaint_category": "={{ $json.complaint_category }}",
+            "severity": "={{ $json.severity }}",
+            "analyzed_at": "={{ $json.analyzed_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "f82183fe-2592-4d2c-ac4e-1a60c0481363",
+      "name": "Append to Google Sheet (optional)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "KSbFwuGTDE0fUDvA",
+          "name": "Google Sheets account"
+        }
+      },
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Set Review Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Review Text": {
+      "main": [
+        [
+          {
+            "node": "Sentiment Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Feature Mentions Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Complaint Category Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sentiment Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Three Agent Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model - Sentiment": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sentiment Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feature Mentions Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Three Agent Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Gemini Model - Features": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Feature Mentions Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model - Complaint": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Complaint Category Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Three Agent Outputs": {
+      "main": [
+        [
+          {
+            "node": "Combine Into Structured Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Into Structured Summary": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet (optional)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complaint Category Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge Three Agent Outputs",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
