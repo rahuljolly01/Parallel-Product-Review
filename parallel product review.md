@@ -1,4 +1,4 @@
-# Workflow 3: Parallel Agent
+# Workflow : Parallel Agent
 ## Concurrent Execution Pattern for Multi-Branch Processing
 
 **Version:** 1.0 | **Last Updated:** October 2026 | **Status:** Production-Ready
